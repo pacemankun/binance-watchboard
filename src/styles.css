@@ -95,6 +95,16 @@ h2 {
   color: #0f7a45;
 }
 
+.connection-state.pending {
+  border-color: #d7c58b;
+  color: #84640f;
+}
+
+.connection-state.offline {
+  border-color: #e0b8b4;
+  color: #b8322b;
+}
+
 .toolbar {
   margin-bottom: 12px;
 }
@@ -202,16 +212,33 @@ h2 {
 }
 
 .table-wrap {
+  width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   border: 1px solid #cbd6d2;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 12px 28px rgb(24 44 52 / 7%);
+  -webkit-overflow-scrolling: touch;
 }
 
-table {
-  width: 100%;
-  min-width: 860px;
+.table-wrap::-webkit-scrollbar {
+  height: 10px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+  background: #edf2ef;
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+  border: 2px solid #edf2ef;
+  border-radius: 999px;
+  background: #9aaba5;
+}
+
+.market-table {
+  width: max-content;
+  min-width: 1120px;
   border-collapse: collapse;
 }
 
@@ -225,6 +252,43 @@ td {
   white-space: nowrap;
 }
 
+.market-table th:nth-child(1),
+.market-table td:nth-child(1) {
+  width: 170px;
+}
+
+.market-table th:nth-child(2),
+.market-table td:nth-child(2) {
+  width: 170px;
+}
+
+.market-table th:nth-child(3),
+.market-table td:nth-child(3) {
+  width: 110px;
+}
+
+.market-table th:nth-child(4),
+.market-table td:nth-child(4),
+.market-table th:nth-child(5),
+.market-table td:nth-child(5) {
+  width: 150px;
+}
+
+.market-table th:nth-child(6),
+.market-table td:nth-child(6) {
+  width: 140px;
+}
+
+.market-table th:nth-child(7),
+.market-table td:nth-child(7) {
+  width: 150px;
+}
+
+.market-table th:nth-child(8),
+.market-table td:nth-child(8) {
+  width: 80px;
+}
+
 th {
   height: 44px;
   color: #68767a;
@@ -232,6 +296,30 @@ th {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.sticky-col,
+.sticky-action {
+  position: sticky;
+  z-index: 2;
+  background: #ffffff;
+}
+
+th.sticky-col,
+th.sticky-action {
+  z-index: 3;
+  background: #f8faf9;
+}
+
+.sticky-col {
+  left: 0;
+  box-shadow: 1px 0 0 #dfe7e4;
+}
+
+.sticky-action {
+  right: 0;
+  text-align: center;
+  box-shadow: -1px 0 0 #dfe7e4;
 }
 
 tr:last-child td {

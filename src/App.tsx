@@ -75,17 +75,17 @@ function App() {
         </div>
 
         <div className="table-wrap">
-          <table>
+          <table className="market-table">
             <thead>
               <tr>
-                <th>Pair</th>
+                <th className="sticky-col">Pair</th>
                 <th>Last Price</th>
                 <th>24h</th>
                 <th>High</th>
                 <th>Low</th>
                 <th>Volume</th>
                 <th>Updated</th>
-                <th aria-label="Actions" />
+                <th className="sticky-action" aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
@@ -181,7 +181,7 @@ function WatchRow({ symbol, ticker, onRemove }: WatchRowProps) {
 
   return (
     <tr>
-      <td>
+      <td className="sticky-col">
         <strong>{symbol}</strong>
       </td>
       <td className="mono">{ticker ? formatPrice(ticker.lastPrice) : <LoadingCell />}</td>
@@ -190,7 +190,7 @@ function WatchRow({ symbol, ticker, onRemove }: WatchRowProps) {
       <td className="mono">{ticker ? formatPrice(ticker.lowPrice) : "-"}</td>
       <td className="mono">{ticker ? compactFormatter.format(ticker.quoteVolume) : "-"}</td>
       <td>{ticker ? formatTime(ticker.eventTime) : "-"}</td>
-      <td>
+      <td className="sticky-action">
         <button
           type="button"
           className="icon-button"
@@ -207,11 +207,13 @@ function WatchRow({ symbol, ticker, onRemove }: WatchRowProps) {
 
 function ConnectionState({ status }: { status: string }) {
   const isOpen = status === "open";
+  const isConnecting = status === "connecting";
+  const label = isConnecting ? "Connecting" : isOpen ? "Live" : status === "error" ? "Failed" : "Offline";
 
   return (
-    <div className={`connection-state ${isOpen ? "online" : "offline"}`}>
+    <div className={`connection-state ${isOpen ? "online" : isConnecting ? "pending" : "offline"}`}>
       {isOpen ? <Wifi size={16} aria-hidden="true" /> : <WifiOff size={16} aria-hidden="true" />}
-      <span>{status === "connecting" ? "Connecting" : isOpen ? "Live" : "Offline"}</span>
+      <span>{label}</span>
     </div>
   );
 }

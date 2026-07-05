@@ -61,6 +61,10 @@ export function useTickerStream(symbols: string[]) {
 
           setStatus(nextStatus);
 
+          if (nextStatus === "open") {
+            setError(null);
+          }
+
           if (nextStatus === "error") {
             setError("WebSocket connection failed");
           }
