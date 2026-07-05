@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Binance Watchboard">
+  <rect width="64" height="64" rx="14" fill="#101820"/>
+  <path d="M15 42h34" stroke="#71808a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M16 40l10-12 9 7 13-17" fill="none" stroke="#18b77b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="18" r="5" fill="#18b77b"/>
+  <text x="18" y="26" fill="#f5f7f8" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">B</text>
+</svg>
