@@ -56,3 +56,53 @@ export type CombinedStreamMessage = {
 };
 
 export type StreamStatus = "idle" | "connecting" | "open" | "closed" | "error";
+
+export type KlineInterval = "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w" | "1M" | "3M";
+export type BinanceKlineInterval = Exclude<KlineInterval, "3M">;
+
+export type KlineCandle = {
+  openTime: number;
+  closeTime: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type KlineSnapshot = [
+  number,
+  string,
+  string,
+  string,
+  string,
+  string,
+  number,
+  string,
+  number,
+  string,
+  string,
+  string,
+];
+
+export type StreamKlineMessage = {
+  e: "kline";
+  E: number;
+  s: string;
+  k: {
+    t: number;
+    T: number;
+    s: string;
+    i: BinanceKlineInterval;
+    o: string;
+    c: string;
+    h: string;
+    l: string;
+    v: string;
+  };
+};
+
+export type CombinedKlineStreamMessage = {
+  stream: string;
+  data: StreamKlineMessage;
+};

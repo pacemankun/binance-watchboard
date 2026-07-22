@@ -1,9 +1,11 @@
 import { Plus, RefreshCw, Search, Trash2, Wifi, WifiOff } from "lucide-react";
 import { useMemo, useState } from "react";
+import { MarketDetailsDrawer } from "./components/MarketDetailsDrawer";
+import { useKlineStream } from "./hooks/useKlineStream";
 import { useSymbols } from "./hooks/useSymbols";
 import { useTickerStream } from "./hooks/useTickerStream";
 import { useWatchlist } from "./hooks/useWatchlist";
-import type { SymbolInfo, Ticker } from "./types/binance";
+import type { KlineInterval, SymbolInfo, Ticker } from "./types/binance";
 
 const usdFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 8,
@@ -16,9 +18,12 @@ const compactFormatter = new Intl.NumberFormat("en-US", {
 
 function App() {
   const [query, setQuery] = useState("");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [interval, setInterval] = useState<KlineInterval>("1h");
   const { results, isLoading, error: symbolError } = useSymbols(query);
   const { symbols: watchlist, symbolSet, addSymbol, removeSymbol } = useWatchlist();
   const { tickers, status, error: tickerError } = useTickerStream(watchlist);
+  const kline = useKlineStream(selectedSymbol, interval);
 
   const rows = useMemo(() => {
     return watchlist.map((symbol) => ({
@@ -30,6 +35,14 @@ function App() {
   function handleAddSymbol(item: SymbolInfo) {
     addSymbol(item.symbol);
     setQuery("");
+  }
+
+  function handleRemoveSymbol(symbol: string) {
+    if (selectedSymbol === symbol) {
+      setSelectedSymbol(null);
+    }
+
+    removeSymbol(symbol);
   }
 
   return (
@@ -95,7 +108,9 @@ function App() {
                     key={row.symbol}
                     symbol={row.symbol}
                     ticker={row.ticker}
-                    onRemove={removeSymbol}
+                    isActive={selectedSymbol === row.symbol}
+                    onOpen={setSelectedSymbol}
+                    onRemove={handleRemoveSymbol}
                   />
                 ))
               ) : (
@@ -109,6 +124,18 @@ function App() {
           </table>
         </div>
       </section>
+
+      <MarketDetailsDrawer
+        symbol={selectedSymbol}
+        interval={interval}
+        ticker={selectedSymbol ? tickers[selectedSymbol] : undefined}
+        candles={kline.candles}
+        isLoading={kline.isLoading}
+        error={kline.error}
+        status={kline.status}
+        onIntervalChange={setInterval}
+        onClose={() => setSelectedSymbol(null)}
+      />
     </main>
   );
 }
@@ -172,15 +199,28 @@ function SearchResults({ query, results, selected, isLoading, error, onAdd }: Se
 type WatchRowProps = {
   symbol: string;
   ticker?: Ticker;
+  isActive: boolean;
+  onOpen: (symbol: string) => void;
   onRemove: (symbol: string) => void;
 };
 
-function WatchRow({ symbol, ticker, onRemove }: WatchRowProps) {
+function WatchRow({ symbol, ticker, isActive, onOpen, onRemove }: WatchRowProps) {
   const change = ticker?.priceChangePercent ?? 0;
   const direction = change >= 0 ? "positive" : "negative";
 
   return (
-    <tr>
+    <tr
+      className={isActive ? "market-row active" : "market-row"}
+      tabIndex={0}
+      aria-label={`Open ${symbol} market details`}
+      onClick={() => onOpen(symbol)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(symbol);
+        }
+      }}
+    >
       <td className="sticky-col">
         <strong>{symbol}</strong>
       </td>
@@ -194,7 +234,11 @@ function WatchRow({ symbol, ticker, onRemove }: WatchRowProps) {
         <button
           type="button"
           className="icon-button"
-          onClick={() => onRemove(symbol)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove(symbol);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
           title="Remove"
           aria-label={`Remove ${symbol}`}
         >

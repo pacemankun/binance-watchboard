@@ -1,6 +1,11 @@
 import type {
+  CombinedKlineStreamMessage,
   CombinedStreamMessage,
+  BinanceKlineInterval,
   ExchangeInfoResponse,
+  KlineCandle,
+  KlineInterval,
+  KlineSnapshot,
   SymbolInfo,
   Ticker,
   TickerSnapshot,
@@ -66,6 +71,27 @@ export async function fetchTickerSnapshot(symbols: string[]): Promise<Ticker[]> 
   return payload.map(mapSnapshotToTicker);
 }
 
+export async function fetchKlines(
+  symbol: string,
+  interval: KlineInterval,
+  limit = 120,
+): Promise<KlineCandle[]> {
+  const sourceInterval = getKlineSourceInterval(interval);
+  const params = new URLSearchParams({
+    symbol,
+    interval: sourceInterval,
+    limit: String(limit),
+  });
+  const response = await fetch(`${REST_BASE_URL}/api/v3/klines?${params}`);
+
+  if (!response.ok) {
+    throw new Error(`Kline request failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as KlineSnapshot[];
+  return payload.map(mapSnapshotToKline);
+}
+
 export function createTickerSocket(
   symbols: string[],
   onTicker: (ticker: Ticker) => void,
@@ -90,6 +116,61 @@ export function createTickerSocket(
   });
 
   return socket;
+}
+
+export function createKlineSocket(
+  symbol: string,
+  interval: KlineInterval,
+  onCandle: (candle: KlineCandle) => void,
+  onStatus: (status: "open" | "closed" | "error") => void,
+): WebSocket {
+  const stream = `${symbol.toLowerCase()}@kline_${getKlineSourceInterval(interval)}`;
+  const socket = new WebSocket(`${STREAM_BASE_URL}?streams=${stream}`);
+
+  socket.addEventListener("open", () => onStatus("open"));
+  socket.addEventListener("close", () => onStatus("closed"));
+  socket.addEventListener("error", () => onStatus("error"));
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(event.data as string) as CombinedKlineStreamMessage;
+
+    if (message.data?.e === "kline") {
+      onCandle(mapStreamToKline(message.data));
+    }
+  });
+
+  return socket;
+}
+
+export function getKlineSourceInterval(interval: KlineInterval): BinanceKlineInterval {
+  return interval === "3M" ? "1M" : interval;
+}
+
+export function aggregateQuarterlyKlines(monthlyCandles: KlineCandle[]): KlineCandle[] {
+  const quarters = new Map<string, KlineCandle>();
+
+  for (const candle of monthlyCandles) {
+    const date = new Date(candle.openTime);
+    const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
+    const key = `${date.getUTCFullYear()}-${quarter}`;
+    const current = quarters.get(key);
+
+    if (!current) {
+      quarters.set(key, { ...candle });
+      continue;
+    }
+
+    quarters.set(key, {
+      openTime: current.openTime,
+      closeTime: candle.closeTime,
+      open: current.open,
+      high: Math.max(current.high, candle.high),
+      low: Math.min(current.low, candle.low),
+      close: candle.close,
+      volume: current.volume + candle.volume,
+    });
+  }
+
+  return [...quarters.values()];
 }
 
 function readSymbolCache(): SymbolInfo[] | null {
@@ -141,5 +222,29 @@ function mapStreamToTicker(data: CombinedStreamMessage["data"]): Ticker {
     volume: Number(data.v),
     quoteVolume: Number(data.q),
     eventTime: data.E,
+  };
+}
+
+function mapSnapshotToKline(snapshot: KlineSnapshot): KlineCandle {
+  return {
+    openTime: snapshot[0],
+    open: Number(snapshot[1]),
+    high: Number(snapshot[2]),
+    low: Number(snapshot[3]),
+    close: Number(snapshot[4]),
+    volume: Number(snapshot[5]),
+    closeTime: snapshot[6],
+  };
+}
+
+function mapStreamToKline(data: CombinedKlineStreamMessage["data"]): KlineCandle {
+  return {
+    openTime: data.k.t,
+    closeTime: data.k.T,
+    open: Number(data.k.o),
+    high: Number(data.k.h),
+    low: Number(data.k.l),
+    close: Number(data.k.c),
+    volume: Number(data.k.v),
   };
 }

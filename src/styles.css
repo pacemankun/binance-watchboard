@@ -237,7 +237,7 @@ h2 {
 }
 
 .market-table {
-  width: max-content;
+  width: 100%;
   min-width: 1120px;
   border-collapse: collapse;
 }
@@ -326,6 +326,30 @@ tr:last-child td {
   border-bottom: 0;
 }
 
+.market-row {
+  cursor: pointer;
+  outline: none;
+}
+
+.market-row:hover td,
+.market-row:focus-visible td,
+.market-row.active td {
+  background: #f0f8f4;
+}
+
+.market-row:hover .sticky-col,
+.market-row:hover .sticky-action,
+.market-row:focus-visible .sticky-col,
+.market-row:focus-visible .sticky-action,
+.market-row.active .sticky-col,
+.market-row.active .sticky-action {
+  background: #f0f8f4;
+}
+
+.market-row:focus-visible td:first-child {
+  box-shadow: inset 3px 0 0 #318f6a;
+}
+
 .mono {
   font-variant-numeric: tabular-nums;
 }
@@ -377,6 +401,208 @@ tr:last-child td {
   animation: spin 900ms linear infinite;
 }
 
+.drawer-layer {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(16 29 28 / 24%);
+}
+
+.market-drawer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(640px, 100%);
+  min-height: 100dvh;
+  flex-direction: column;
+  overflow-y: auto;
+  border-left: 1px solid #cbd6d2;
+  background: #ffffff;
+  box-shadow: -18px 0 42px rgb(18 34 32 / 18%);
+  padding: 24px;
+}
+
+.drawer-header,
+.drawer-title-row,
+.price-summary,
+.interval-tabs {
+  display: flex;
+  align-items: center;
+}
+
+.drawer-header,
+.price-summary {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.drawer-header {
+  margin-bottom: 24px;
+}
+
+.drawer-title-row {
+  gap: 10px;
+}
+
+.drawer-title-row h2 {
+  font-size: 25px;
+}
+
+.drawer-close {
+  flex: 0 0 auto;
+}
+
+.stream-indicator {
+  border: 1px solid #d7c58b;
+  border-radius: 999px;
+  color: #84640f;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stream-indicator.online {
+  border-color: #a6d4bd;
+  color: #0f7a45;
+}
+
+.price-summary {
+  min-height: 86px;
+  border: 1px solid #dbe4e0;
+  border-radius: 8px;
+  background: #f8faf9;
+  padding: 16px;
+}
+
+.price-summary > div {
+  display: grid;
+  gap: 5px;
+}
+
+.price-summary > div:last-child {
+  text-align: right;
+}
+
+.summary-label,
+.ohlc-item span {
+  color: #708084;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.summary-price {
+  font-size: 23px;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-change {
+  color: #506065;
+}
+
+.interval-tabs {
+  gap: 4px;
+  overflow-x: auto;
+  margin: 22px 0 14px;
+  border-bottom: 1px solid #dfe7e4;
+  padding-bottom: 10px;
+}
+
+.interval-tab {
+  min-width: 42px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #65737a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.interval-tab:hover,
+.interval-tab.active {
+  border-color: #b8d6c8;
+  background: #eaf6ef;
+  color: #0b7544;
+}
+
+.chart-panel {
+  position: relative;
+  height: 380px;
+  border: 1px solid #edf0f2;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.candlestick-chart {
+  width: 100%;
+  height: 380px;
+}
+
+.chart-state {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #65737a;
+  font-size: 14px;
+}
+
+.candle-inspector {
+  margin-top: 18px;
+}
+
+.candle-inspector-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #6d7784;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.candle-inspector-heading time {
+  color: #9199a3;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.ohlc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ohlc-item {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  border: 1px solid #edf0f2;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.ohlc-item strong {
+  overflow: hidden;
+  color: #263135;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -400,5 +626,24 @@ tr:last-child td {
 
   .title-row {
     flex-wrap: wrap;
+  }
+
+  .market-drawer {
+    width: 100%;
+    border-left: 0;
+    padding: 18px;
+  }
+
+  .drawer-header {
+    margin-bottom: 18px;
+  }
+
+  .chart-panel,
+  .candlestick-chart {
+    height: 320px;
+  }
+
+  .ohlc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
