@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { EtfReturnsPage } from "./features/etfReturns/EtfReturnsPage";
+import { EtfReturnsPage } from "./pages/EtfReturnsPage";
 import WatchboardPage from "./pages/WatchboardPage";
 
 function App() {
