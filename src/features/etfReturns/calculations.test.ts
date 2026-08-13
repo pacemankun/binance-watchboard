@@ -3,6 +3,10 @@ import {
   buildReturnSeries,
   calculateEventReturn,
   findUnderwaterSummary,
+  formatDuration,
+  formatMoney,
+  formatMonth,
+  formatPercent,
   interpolateReturn,
   parseMonth,
 } from "./calculations";
@@ -80,5 +84,16 @@ describe("ETF return calculations", () => {
     const interpolated = interpolateReturn(series, midpoint);
     expect(interpolated.amount).toBeCloseTo(10500, 8);
     expect(interpolated.pct).toBeCloseTo(5, 8);
+  });
+
+  it("formats chart values with the source-page conventions", () => {
+    expect(formatMoney(95760.67, "$")).toBe("$95,761");
+    expect(formatMoney(6207.26, "HK$")).toBe("HK$6,207");
+    expect(formatPercent(857.6067)).toBe("+857.6");
+    expect(formatPercent(-37.927)).toBe("−37.9");
+    expect(formatMonth(parseMonth("2026-08"))).toBe("2026年08月");
+    expect(formatDuration(8)).toBe("8个月");
+    expect(formatDuration(26)).toBe("2年2个月");
+    expect(formatDuration(36)).toBe("3年");
   });
 });

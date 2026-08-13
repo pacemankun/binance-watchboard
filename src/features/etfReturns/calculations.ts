@@ -1,4 +1,4 @@
-import { bisector, timeMonth } from "d3";
+import { bisector, format, timeFormat, timeMonth } from "d3";
 import type {
   EtfReturnConfig,
   MarketEvent,
@@ -110,4 +110,23 @@ export function interpolateReturn(
     amount: before.amount + (after.amount - before.amount) * progress,
     pct,
   };
+}
+
+export function formatMoney(value: number, prefix: "$" | "HK$"): string {
+  return `${prefix}${format(",.0f")(value)}`;
+}
+
+export function formatPercent(value: number): string {
+  return `${value >= 0 ? "+" : "−"}${format(".1f")(Math.abs(value))}`;
+}
+
+export function formatMonth(date: Date): string {
+  return timeFormat("%Y年%m月")(date);
+}
+
+export function formatDuration(months: number): string {
+  if (months < 12) return `${months}个月`;
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  return `${years}年${remainingMonths ? `${remainingMonths}个月` : ""}`;
 }

@@ -17,6 +17,11 @@ Object.defineProperty(window, "ResizeObserver", {
   value: TestResizeObserver,
 });
 
+Object.defineProperty(window, "PointerEvent", {
+  configurable: true,
+  value: MouseEvent,
+});
+
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
   value: (query: string): MediaQueryList => ({
