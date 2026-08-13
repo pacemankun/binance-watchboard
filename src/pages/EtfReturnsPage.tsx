@@ -1,10 +1,10 @@
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ETF_KEYS, getEtfConfig } from "./data";
-import { EtfReturnChart } from "./EtfReturnChart";
-import "./etfReturns.css";
-import type { EtfKey } from "./types";
+import { ETF_KEYS, getEtfConfig } from "../features/etfReturns/data";
+import { EtfReturnChart } from "../features/etfReturns/EtfReturnChart";
+import "../features/etfReturns/etfReturns.css";
+import type { EtfKey } from "../features/etfReturns/types";
 
 export function EtfReturnsPage() {
   const [selectedKey, setSelectedKey] = useState<EtfKey>("qqq");
