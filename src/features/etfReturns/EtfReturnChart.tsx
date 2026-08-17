@@ -337,6 +337,7 @@ export function EtfReturnChart({ config }: { config: EtfReturnConfig }) {
         .attr("cx", resolvedX)
         .attr("cy", y(resolved.pct))
         .attr("r", resolved.snapKind ? 5 : 3.5)
+        .attr("fill", resolved.snapKind ? "var(--etf-snap)" : "var(--etf-line)")
         .attr("data-snap-kind", resolved.snapKind ?? "")
         .style("display", null);
 
