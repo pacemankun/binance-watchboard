@@ -1,4 +1,4 @@
-import { bisector, format, timeDay, timeFormat, timeMonth } from "d3";
+import { bisector, format, timeFormat, timeMonth } from "d3";
 import type {
   EtfReturnConfig,
   MarketEvent,
@@ -30,7 +30,20 @@ type SnapCandidate = HoverCandidate & {
 };
 
 const returnPointBisector = bisector<ReturnPoint, Date>((point) => point.date);
-const snapWindowDays = 15;
+
+function offsetCalendarMonth(date: Date, months: number): Date {
+  const result = new Date(date);
+  const dayOfMonth = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDayOfTargetMonth = new Date(
+    result.getFullYear(),
+    result.getMonth() + 1,
+    0,
+  ).getDate();
+  result.setDate(Math.min(dayOfMonth, lastDayOfTargetMonth));
+  return result;
+}
 
 export function parseMonth(month: string): Date {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -153,10 +166,10 @@ export function resolveHoverPoint(
   const date = new Date(rawTime);
   const freePoint = interpolateReturn(series, date);
   const windowStart = new Date(
-    Math.max(firstTime, timeDay.offset(date, -snapWindowDays).getTime()),
+    Math.max(firstTime, offsetCalendarMonth(date, -1).getTime()),
   );
   const windowEnd = new Date(
-    Math.min(lastTime, timeDay.offset(date, snapWindowDays).getTime()),
+    Math.min(lastTime, offsetCalendarMonth(date, 1).getTime()),
   );
   const candidates = buildWindowCandidates(series, windowStart, windowEnd);
   const highestAmount = candidates.reduce(
