@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Do not change the embedded monthly adjusted-close strings, the initial capital of `10000`, or the total-return formula.
-- Use `timeMonth.offset(date, -1)` and `timeMonth.offset(date, 1)` for the moving natural-month window.
+- Use a local calendar-month helper that clamps the original day to the target month's last day; do not use fixed 30-day arithmetic or bare `timeMonth.offset` for the moving window.
 - Snapped local highs and lows both use red `#dc2626`; free hover keeps the existing line color.
 - Keep the existing `requestAnimationFrame` pointer-event coalescing and all tie-breaking rules.
 - Do not add `test.ts` or `test.tsx` files, per the project owner's explicit request.
@@ -68,16 +68,16 @@ git add src/features/etfReturns/data.ts
 git commit -m "chore: refine ETF event annotations"
 ```
 
-### Task 2: Expand the Extrema Window to One Calendar Month
+### Task 2: Expand the Extrema Window to One Clamped Calendar Month
 
 **Files:**
 - Modify: `src/features/etfReturns/calculations.ts:1-33,155-160`
 
 **Interfaces:**
 - Consumes: `resolveHoverPoint(series, rawDate, direction)` and existing `ReturnPoint` values.
-- Produces: The same `HoverResolution` shape with a natural-month window; callers do not change.
+- Produces: The same `HoverResolution` shape with a clamped natural-month window; callers do not change.
 
-- [ ] **Step 1: Replace the day-based dependency and constant**
+- [ ] **Step 1: Remove the day-based dependency and constant**
 
 Change the import from:
 
@@ -97,33 +97,55 @@ Remove:
 const snapWindowDays = 15;
 ```
 
-- [ ] **Step 2: Use natural-month offsets**
+- [ ] **Step 2: Add a clamped local-calendar-month helper**
+
+Add the following internal helper near the other calculation helpers:
+
+```ts
+function offsetCalendarMonth(date: Date, months: number): Date {
+  const result = new Date(date);
+  const dayOfMonth = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDayOfTargetMonth = new Date(
+    result.getFullYear(),
+    result.getMonth() + 1,
+    0,
+  ).getDate();
+  result.setDate(Math.min(dayOfMonth, lastDayOfTargetMonth));
+  return result;
+}
+```
+
+Setting the day to `1` before shifting prevents JavaScript month overflow. Clamping then preserves ordinary day numbers while mapping March 31 to February 28 or 29.
+
+- [ ] **Step 3: Use the clamped offsets in the hover window**
 
 Replace the window calculation with:
 
 ```ts
 const windowStart = new Date(
-  Math.max(firstTime, timeMonth.offset(date, -1).getTime()),
+  Math.max(firstTime, offsetCalendarMonth(date, -1).getTime()),
 );
 const windowEnd = new Date(
-  Math.min(lastTime, timeMonth.offset(date, 1).getTime()),
+  Math.min(lastTime, offsetCalendarMonth(date, 1).getTime()),
 );
 ```
 
 Leave boundary interpolation, real-node eligibility, flat-window behavior, nearest-time selection, and movement-direction tie-breaking unchanged.
 
-- [ ] **Step 3: Verify TypeScript and calendar behavior**
+- [ ] **Step 4: Verify TypeScript and calendar behavior**
 
 Run:
 
 ```bash
 npx tsc --noEmit
-TZ=America/New_York node --input-type=module -e 'import {timeMonth} from "d3"; const d = new Date(2024, 2, 31); console.log(timeMonth.offset(d, -1).toString(), timeMonth.offset(d, 1).toString())'
+TZ=America/New_York node --input-type=module -e 'function offsetCalendarMonth(date,months){const result=new Date(date);const day=result.getDate();result.setDate(1);result.setMonth(result.getMonth()+months);const last=new Date(result.getFullYear(),result.getMonth()+1,0).getDate();result.setDate(Math.min(day,last));return result} console.log(offsetCalendarMonth(new Date(2024,2,31,12),-1).toString()); console.log(offsetCalendarMonth(new Date(2023,2,31,12),-1).toString())'
 ```
 
-Expected: TypeScript exits successfully; D3 returns valid local calendar dates across month length and DST changes without a fixed-millisecond calculation.
+Expected: TypeScript exits successfully; the command prints February 29, 2024 and February 28, 2023 while preserving local noon across DST offset changes.
 
-- [ ] **Step 4: Commit the calculation change**
+- [ ] **Step 5: Commit the calculation change**
 
 ```bash
 git add src/features/etfReturns/calculations.ts
