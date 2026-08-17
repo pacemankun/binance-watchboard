@@ -1,4 +1,4 @@
-import { bisector, format, timeFormat, timeMonth } from "d3";
+import { bisector, format, timeDay, timeFormat, timeMonth } from "d3";
 import type {
   EtfReturnConfig,
   MarketEvent,
@@ -30,7 +30,7 @@ type SnapCandidate = HoverCandidate & {
 };
 
 const returnPointBisector = bisector<ReturnPoint, Date>((point) => point.date);
-const snapWindowMs = 15 * 24 * 60 * 60 * 1000;
+const snapWindowDays = 15;
 
 export function parseMonth(month: string): Date {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -152,20 +152,36 @@ export function resolveHoverPoint(
   const rawTime = Math.max(firstTime, Math.min(lastTime, rawDate.getTime()));
   const date = new Date(rawTime);
   const freePoint = interpolateReturn(series, date);
-  const windowStart = new Date(Math.max(firstTime, rawTime - snapWindowMs));
-  const windowEnd = new Date(Math.min(lastTime, rawTime + snapWindowMs));
+  const windowStart = new Date(
+    Math.max(firstTime, timeDay.offset(date, -snapWindowDays).getTime()),
+  );
+  const windowEnd = new Date(
+    Math.min(lastTime, timeDay.offset(date, snapWindowDays).getTime()),
+  );
   const candidates = buildWindowCandidates(series, windowStart, windowEnd);
-  const high = candidates.reduce((best, point) => (point.amount > best.amount ? point : best));
-  const low = candidates.reduce((best, point) => (point.amount < best.amount ? point : best));
+  const highestAmount = candidates.reduce(
+    (highest, point) => Math.max(highest, point.amount),
+    Number.NEGATIVE_INFINITY,
+  );
+  const lowestAmount = candidates.reduce(
+    (lowest, point) => Math.min(lowest, point.amount),
+    Number.POSITIVE_INFINITY,
+  );
 
-  if (high.amount === low.amount) {
+  if (highestAmount === lowestAmount) {
     return { ...freePoint, date, snapKind: null };
   }
 
-  const snapCandidates = [
-    toSnapCandidate(high, "high", windowStart, windowEnd),
-    toSnapCandidate(low, "low", windowStart, windowEnd),
-  ].filter((point): point is SnapCandidate => point !== null);
+  const snapCandidates = candidates
+    .flatMap((point) => {
+      const extrema: Array<HoverSnapKind> = [];
+      if (point.amount === highestAmount) extrema.push("high");
+      if (point.amount === lowestAmount) extrema.push("low");
+      return extrema.map((snapKind) =>
+        toSnapCandidate(point, snapKind, windowStart, windowEnd),
+      );
+    })
+    .filter((point): point is SnapCandidate => point !== null);
 
   if (snapCandidates.length === 0) {
     return { ...freePoint, date, snapKind: null };

@@ -43,7 +43,7 @@ export type HoverResolution = {
   snapKind: HoverSnapKind | null;
 };
 
-const snapWindowMs = 15 * 24 * 60 * 60 * 1000;
+const snapWindowDays = 15;
 ```
 
 - [ ] **Step 2: Implement the bisector-based window resolver**
@@ -61,20 +61,24 @@ export function resolveHoverPoint(
   const rawTime = Math.max(first.date.getTime(), Math.min(last.date.getTime(), rawDate.getTime()));
   const date = new Date(rawTime);
   const freePoint = interpolateReturn(series, date);
-  const start = new Date(Math.max(first.date.getTime(), rawTime - snapWindowMs));
-  const end = new Date(Math.min(last.date.getTime(), rawTime + snapWindowMs));
+  const start = new Date(Math.max(first.date.getTime(), timeDay.offset(date, -snapWindowDays).getTime()));
+  const end = new Date(Math.min(last.date.getTime(), timeDay.offset(date, snapWindowDays).getTime()));
   const candidates = buildWindowCandidates(series, start, end);
-  const high = candidates.reduce((best, point) => point.amount > best.amount ? point : best);
-  const low = candidates.reduce((best, point) => point.amount < best.amount ? point : best);
+  const highestAmount = Math.max(...candidates.map((point) => point.amount));
+  const lowestAmount = Math.min(...candidates.map((point) => point.amount));
 
-  if (high.amount === low.amount) {
+  if (highestAmount === lowestAmount) {
     return { ...freePoint, date, snapKind: null };
   }
 
-  const snaps = [
-    toSnapCandidate(high, "high", start, end),
-    toSnapCandidate(low, "low", start, end),
-  ].filter((point): point is SnapCandidate => point !== null);
+  const snaps = candidates
+    .flatMap((point) => {
+      const extrema: Array<HoverSnapKind> = [];
+      if (point.amount === highestAmount) extrema.push("high");
+      if (point.amount === lowestAmount) extrema.push("low");
+      return extrema.map((kind) => toSnapCandidate(point, kind, start, end));
+    })
+    .filter((point): point is SnapCandidate => point !== null);
 
   if (snaps.length === 0) {
     return { ...freePoint, date, snapKind: null };
@@ -86,7 +90,7 @@ export function resolveHoverPoint(
 }
 ```
 
-`buildWindowCandidates` uses one shared `bisector<ReturnPoint, Date>((point) => point.date)` instance, interpolates both window boundaries, adds only bisected monthly nodes, and deduplicates by timestamp. `toSnapCandidate` rejects non-node candidates and timestamps equal to either window boundary. `compareSnapCandidates` sorts first by absolute time distance and then prefers the pointer movement direction. A flat window returns the continuous point.
+`buildWindowCandidates` uses one shared `bisector<ReturnPoint, Date>((point) => point.date)` instance, interpolates both window boundaries, adds only bisected monthly nodes, and deduplicates by timestamp. Every internal real node tied at the window maximum or minimum is retained, while `toSnapCandidate` rejects non-node candidates and timestamps equal to either window boundary. `compareSnapCandidates` sorts first by absolute time distance and then prefers the pointer movement direction. A completely flat window returns the continuous point.
 
 - [ ] **Step 3: Add day-precision hover formatting without changing existing month formatting**
 
