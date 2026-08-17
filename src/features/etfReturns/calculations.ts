@@ -8,6 +8,30 @@ import type {
   UnderwaterSummary,
 } from "./types";
 
+export type PointerDirection = -1 | 0 | 1;
+export type HoverSnapKind = "high" | "low";
+
+export type HoverResolution = {
+  amount: number;
+  date: Date;
+  pct: number;
+  snapKind: HoverSnapKind | null;
+};
+
+type HoverCandidate = {
+  amount: number;
+  date: Date;
+  isNode: boolean;
+  pct: number;
+};
+
+type SnapCandidate = HoverCandidate & {
+  snapKind: HoverSnapKind;
+};
+
+const returnPointBisector = bisector<ReturnPoint, Date>((point) => point.date);
+const snapWindowMs = 15 * 24 * 60 * 60 * 1000;
+
 export function parseMonth(month: string): Date {
   const [year, monthNumber] = month.split("-").map(Number);
   return new Date(year, monthNumber - 1, 1);
@@ -100,7 +124,7 @@ export function interpolateReturn(
   if (date <= first.date) return { amount: first.amount, pct: first.pct };
   if (date >= last.date) return { amount: last.amount, pct: last.pct };
 
-  const index = bisector<ReturnPoint, Date>((point) => point.date).left(series, date);
+  const index = returnPointBisector.left(series, date);
   const before = series[index - 1];
   const after = series[index];
   const progress = (date.getTime() - before.date.getTime()) / (after.date.getTime() - before.date.getTime());
@@ -110,6 +134,130 @@ export function interpolateReturn(
     amount: before.amount + (after.amount - before.amount) * progress,
     pct,
   };
+}
+
+export function resolveHoverPoint(
+  series: readonly ReturnPoint[],
+  rawDate: Date,
+  direction: PointerDirection,
+): HoverResolution {
+  const first = series[0];
+  const last = series[series.length - 1];
+  if (!first || !last) {
+    throw new Error("Cannot resolve hover for an empty return series");
+  }
+
+  const firstTime = first.date.getTime();
+  const lastTime = last.date.getTime();
+  const rawTime = Math.max(firstTime, Math.min(lastTime, rawDate.getTime()));
+  const date = new Date(rawTime);
+  const freePoint = interpolateReturn(series, date);
+  const windowStart = new Date(Math.max(firstTime, rawTime - snapWindowMs));
+  const windowEnd = new Date(Math.min(lastTime, rawTime + snapWindowMs));
+  const candidates = buildWindowCandidates(series, windowStart, windowEnd);
+  const high = candidates.reduce((best, point) => (point.amount > best.amount ? point : best));
+  const low = candidates.reduce((best, point) => (point.amount < best.amount ? point : best));
+
+  if (high.amount === low.amount) {
+    return { ...freePoint, date, snapKind: null };
+  }
+
+  const snapCandidates = [
+    toSnapCandidate(high, "high", windowStart, windowEnd),
+    toSnapCandidate(low, "low", windowStart, windowEnd),
+  ].filter((point): point is SnapCandidate => point !== null);
+
+  if (snapCandidates.length === 0) {
+    return { ...freePoint, date, snapKind: null };
+  }
+
+  snapCandidates.sort((a, b) => compareSnapCandidates(a, b, rawTime, direction));
+  const snap = snapCandidates[0];
+
+  return {
+    amount: snap.amount,
+    date: snap.date,
+    pct: snap.pct,
+    snapKind: snap.snapKind,
+  };
+}
+
+function buildWindowCandidates(
+  series: readonly ReturnPoint[],
+  windowStart: Date,
+  windowEnd: Date,
+): HoverCandidate[] {
+  const byTime = new Map<number, HoverCandidate>();
+  const startValue = interpolateReturn(series, windowStart);
+  const endValue = interpolateReturn(series, windowEnd);
+
+  byTime.set(windowStart.getTime(), {
+    ...startValue,
+    date: windowStart,
+    isNode: false,
+  });
+  byTime.set(windowEnd.getTime(), {
+    ...endValue,
+    date: windowEnd,
+    isNode: false,
+  });
+
+  const firstNodeIndex = returnPointBisector.left(series, windowStart);
+  const afterLastNodeIndex = returnPointBisector.right(series, windowEnd);
+
+  for (let index = firstNodeIndex; index < afterLastNodeIndex; index += 1) {
+    const point = series[index];
+    byTime.set(point.date.getTime(), {
+      amount: point.amount,
+      date: point.date,
+      isNode: true,
+      pct: point.pct,
+    });
+  }
+
+  return [...byTime.values()];
+}
+
+function toSnapCandidate(
+  point: HoverCandidate,
+  snapKind: HoverSnapKind,
+  windowStart: Date,
+  windowEnd: Date,
+): SnapCandidate | null {
+  const pointTime = point.date.getTime();
+  if (
+    !point.isNode ||
+    pointTime <= windowStart.getTime() ||
+    pointTime >= windowEnd.getTime()
+  ) {
+    return null;
+  }
+
+  return { ...point, snapKind };
+}
+
+function compareSnapCandidates(
+  a: SnapCandidate,
+  b: SnapCandidate,
+  rawTime: number,
+  direction: PointerDirection,
+): number {
+  const aTime = a.date.getTime();
+  const bTime = b.date.getTime();
+  const distanceDifference = Math.abs(aTime - rawTime) - Math.abs(bTime - rawTime);
+  if (distanceDifference !== 0) {
+    return distanceDifference;
+  }
+
+  if (direction !== 0) {
+    const aIsAhead = direction > 0 ? aTime >= rawTime : aTime <= rawTime;
+    const bIsAhead = direction > 0 ? bTime >= rawTime : bTime <= rawTime;
+    if (aIsAhead !== bIsAhead) {
+      return aIsAhead ? -1 : 1;
+    }
+  }
+
+  return aTime - bTime;
 }
 
 export function formatMoney(value: number, prefix: "$" | "HK$"): string {
@@ -122,6 +270,10 @@ export function formatPercent(value: number): string {
 
 export function formatMonth(date: Date): string {
   return timeFormat("%Y年%m月")(date);
+}
+
+export function formatHoverDate(date: Date): string {
+  return timeFormat("%Y年%m月%d日")(date);
 }
 
 export function formatDuration(months: number): string {
