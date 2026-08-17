@@ -18,12 +18,14 @@ import {
   calculateEventReturn,
   findUnderwaterSummary,
   formatDuration,
+  formatHoverDate,
   formatMoney,
   formatMonth,
   formatPercent,
-  interpolateReturn,
   parseMonth,
+  resolveHoverPoint,
 } from "./calculations";
+import type { HoverSnapKind, PointerDirection } from "./calculations";
 import type { EtfReturnConfig } from "./types";
 
 const CHART_WIDTH = 1500;
@@ -32,18 +34,26 @@ const MARGIN = { bottom: 40, left: 72, right: 76, top: 96 } as const;
 
 type TooltipState = {
   amount: number;
+  dateLabel: string;
   left: number;
-  month: string;
   pct: number;
+  snapKind: HoverSnapKind | null;
   top: number;
   visible: boolean;
 };
 
+type PendingPointer = {
+  clientX: number;
+  clientY: number;
+  mouseX: number;
+};
+
 const hiddenTooltip: TooltipState = {
   amount: 0,
+  dateLabel: "",
   left: 0,
-  month: "",
   pct: 0,
+  snapKind: null,
   top: 0,
   visible: false,
 };
@@ -289,6 +299,62 @@ export function EtfReturnChart({ config }: { config: EtfReturnConfig }) {
       .attr("r", 3.5)
       .attr("fill", "var(--etf-line)")
       .style("display", "none");
+    let frameId: number | null = null;
+    let pendingPointer: PendingPointer | null = null;
+    let previousRawTime: number | null = null;
+
+    const hidePointer = () => {
+      pendingPointer = null;
+      previousRawTime = null;
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+      crosshair.style("display", "none");
+      marker.style("display", "none");
+    };
+
+    const renderPendingPointer = () => {
+      frameId = null;
+      const current = pendingPointer;
+      pendingPointer = null;
+      if (!current) return;
+
+      const rawDate = x.invert(current.mouseX);
+      const rawTime = rawDate.getTime();
+      const direction: PointerDirection =
+        previousRawTime === null || rawTime === previousRawTime
+          ? 0
+          : rawTime > previousRawTime
+            ? 1
+            : -1;
+      previousRawTime = rawTime;
+
+      const resolved = resolveHoverPoint(series, rawDate, direction);
+      const resolvedX = x(resolved.date);
+      crosshair.attr("x1", resolvedX).attr("x2", resolvedX).style("display", null);
+      marker
+        .attr("cx", resolvedX)
+        .attr("cy", y(resolved.pct))
+        .attr("r", resolved.snapKind ? 5 : 3.5)
+        .attr("fill", resolved.snapKind ? "var(--etf-snap)" : "var(--etf-line)")
+        .attr("data-snap-kind", resolved.snapKind ?? "")
+        .style("display", null);
+
+      const bounds = rootNode.getBoundingClientRect();
+      const rawLeft = current.clientX - bounds.left + 12;
+      const left = rawLeft + 230 > bounds.width - 8 ? Math.max(8, rawLeft - 254) : Math.max(8, rawLeft);
+      setTooltip({
+        amount: resolved.amount,
+        dateLabel: formatHoverDate(resolved.date),
+        left,
+        pct: resolved.pct,
+        snapKind: resolved.snapKind,
+        top: Math.max(8, current.clientY - bounds.top + 12),
+        visible: true,
+      });
+    };
+
     const hitArea = group
       .append("rect")
       .attr("data-chart-hit", "")
@@ -296,30 +362,22 @@ export function EtfReturnChart({ config }: { config: EtfReturnConfig }) {
       .attr("height", innerHeight)
       .attr("fill", "transparent")
       .on("pointermove", function (event: PointerEvent) {
-        const mouseX = Math.max(0, Math.min(innerWidth, pointer(event, this)[0]));
-        const date = x.invert(mouseX);
-        const interpolated = interpolateReturn(series, date);
-        crosshair.attr("x1", mouseX).attr("x2", mouseX).style("display", null);
-        marker.attr("cx", mouseX).attr("cy", y(interpolated.pct)).style("display", null);
-        const bounds = rootNode.getBoundingClientRect();
-        const rawLeft = event.clientX - bounds.left + 12;
-        const left = rawLeft + 230 > bounds.width - 8 ? Math.max(8, rawLeft - 254) : Math.max(8, rawLeft);
-        setTooltip({
-          amount: interpolated.amount,
-          left,
-          month: formatMonth(date),
-          pct: interpolated.pct,
-          top: Math.max(8, event.clientY - bounds.top + 12),
-          visible: true,
-        });
+        pendingPointer = {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          mouseX: Math.max(0, Math.min(innerWidth, pointer(event, this)[0])),
+        };
+        if (frameId === null) {
+          frameId = requestAnimationFrame(renderPendingPointer);
+        }
       })
       .on("pointerleave", () => {
-        crosshair.style("display", "none");
-        marker.style("display", "none");
+        hidePointer();
         setTooltip((current) => ({ ...current, visible: false }));
       });
 
     return () => {
+      hidePointer();
       hitArea.on("pointermove", null).on("pointerleave", null);
       svg.selectAll("*").remove();
     };
@@ -353,7 +411,10 @@ export function EtfReturnChart({ config }: { config: EtfReturnConfig }) {
         aria-hidden={tooltip.visible ? "false" : "true"}
         style={{ display: tooltip.visible ? "block" : "none", left: tooltip.left, top: tooltip.top }}
       >
-        <b>{tooltip.month}</b>
+        <b>
+          {tooltip.dateLabel}
+          {tooltip.snapKind ? ` · ${tooltip.snapKind === "high" ? "局部高点" : "局部低点"}` : ""}
+        </b>
         <br />实际金额：{formatMoney(tooltip.amount, config.currencyPrefix)}
         <br />相对本金：{formatPercent(tooltip.pct)}%
         <br />状态：{tooltip.pct >= 0 ? "水上（盈利）" : "水下（亏损）"}
