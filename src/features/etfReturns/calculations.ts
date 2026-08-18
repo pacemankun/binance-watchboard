@@ -166,10 +166,10 @@ export function resolveHoverPoint(
   const date = new Date(rawTime);
   const freePoint = interpolateReturn(series, date);
   const windowStart = new Date(
-    Math.max(firstTime, offsetCalendarMonth(date, -1).getTime()),
+    Math.max(firstTime, offsetCalendarMonth(date, -3).getTime()),
   );
   const windowEnd = new Date(
-    Math.min(lastTime, offsetCalendarMonth(date, 1).getTime()),
+    Math.min(lastTime, offsetCalendarMonth(date, 3).getTime()),
   );
   const candidates = buildWindowCandidates(series, windowStart, windowEnd);
   const highestAmount = candidates.reduce(
